@@ -1,0 +1,327 @@
+---
+title: "A quantitative analysis of the variational pattern of French loans in Luxembourgish showcasing R (and Quarto)"
+subtitle: "Perspectives on Linguistics"
+author: "Peter Gilles"
+date: 27/02/2024
+format:
+  html: 
+    code-fold: true
+    code-summary: "R code"
+  revealjs:
+    smaller: true
+    scrollable: true
+    execute:
+      echo: true
+      warning: false
+    code-fold: false
+    code-summary: "R code"
+    output-file: page-reveal.html
+editor: visual
+bibliography: references.bib
+---
+
+## The research question
+
+Drawing on data from our Schnëssen project, we seek to understand the driving factors behind the choice of a variant of Germanic origin (Luxembourgish or German) or French origin.
+
+Example:
+
+-   Germanic origin: *Stréihallem, Strand, Ferndbedienung* vs. French origin: *Schallimo, Plage, Telecommande*
+
+This linguistic choice as the **dependent variable** is influenced by social or other linguistic variables as **independent variables:**
+
+-   age
+-   gender
+-   education
+-   language competencies (French, German)
+
+Corollary aim of this presentation:
+
+-   showcase, how these questions will be adressed in a coherent and systematic way using R - for data wrangling and statistics -, Quarto - for writing-up and layout - and GitHub - for publishing and dissemination.
+
+## References/Tutorials
+
+### Statistics for Language Variation & Change with R
+
+-   [LADAL - Language Technology and Data Analysis Laboratory](https://ladal.edu.au/index.html)
+-   <https://lingmethodshub.github.io/>
+-   [@levshinaHowLinguisticsData2015]
+-   [@winterStatisticsLinguistsIntroduction2020]
+
+### Quarto
+
+-   <https://quarto.org/>
+
+## The data
+
+Collected with Schnëssen app
+
+-   audio data for +800 linguistic variables inserted in translation tasks from German or French, image descriptions etc.
+-   per variable: 300 up to 1500 responses
+-   coded for variable, variant, social data of respondent
+
+Sub-set for this study extracted as data frame/tibble in R.
+
+```{r}
+# load and display the dataset
+input_data <- readRDS("input_data.rds")
+```
+
+The dataset has `{r} nrow(input_data)` rows.
+
+Give an overview as table:
+
+```{r}
+DT::datatable(input_data)
+```
+
+The tibble `input_data` has the following structure.
+
+```{r}
+str(input_data)
+```
+
+```{r}
+summary(input_data)
+```
+
+## What's inside the tibble?
+
+Using crosstables - Responses by age
+
+```{r}
+table(input_data$age)
+```
+
+-   Responses by age and French_origin
+
+```{r}
+table(input_data$age, input_data$French_origin)
+```
+
+-   Responses by competence_french and French_origin
+
+```{r}
+table(input_data$competence_french, input_data$French_origin)
+```
+
+-   Can we have this in percentages?
+
+```{r}
+prop.table(table(input_data$competence_french, input_data$French_origin))
+```
+
+-   Mean number of responses by id
+
+```{r}
+mean(table(input_data$id))
+```
+
+-   How many different `id`s (= speakers) are in the dataset?
+
+```{r}
+length(unique(input_data$id))
+```
+
+# The analysis
+
+## 1st analysis: regression analysis
+
+**Hypothesis:** The choice of a French variant (dependent variable/response variable) is influenced by social factors (independent variables/predictors).
+
+Choice of regression analysis dependent on the nature of the dependent variable:
+
+-   binary: logistic regression
+-   count: Poisson regression
+-   continuous: linear regression
+
+Our dependent variable *French_origin* is binary, thus we will use logistic regression.
+
+## Logistic regression
+
+Prepare data
+
+```{r}
+# see: https://slcladal.github.io/regression.html#Random_Effects
+library(tidyverse)
+library(lme4)
+library(sjPlot)
+
+data <- input_data %>%
+  # filter for domain (lexicon or phonology)
+  filter(domain == "lexicon") %>%
+  # convert binary variable to values 0 and 1
+  mutate(across(French_origin, str_replace, "non-French", "0")) %>%
+  mutate(across(French_origin, str_replace, "French", "1")) %>%
+  mutate(French_origin = as.integer(French_origin)) %>%
+  mutate(age = factor(age, ordered = FALSE)) %>%
+  mutate(age6 = factor(age6, ordered = TRUE)) %>%
+  mutate(education = factor(education, ordered = FALSE)) %>%
+  mutate(competence_german = factor(competence_german, ordered = FALSE)) %>%
+  mutate(competence_french = factor(competence_french, ordered = FALSE)) %>%
+  mutate(urbanity = factor(urbanity, ordered = FALSE))
+```
+
+The regression model will be fit step by step ('stepwise regression') by starting out with a base model without predictors and then adding one predictor after the other. After each step the model will be compared statistically with the previous one. If better, the predictor is retained, if the model is worse or the same, the predictor is eliminated. Step by step then the explanatory predictors are detected.
+
+## Logistic Regression
+
+Fit base model. Use *id* and *variable* as random effects.
+
+```{r}
+m0.lmer <- lmer(formula=French_origin ~ 1 + (1|id) + (1|variable), REML = T, data = data)
+```
+
+Add age as first predictor.
+
+```{r}
+m1.lmer <- lmer(formula=French_origin ~ age + (1|id) + (1|variable), REML = T, data = data)
+tab_model(m1.lmer)
+```
+
+Compare which model is performing better.
+
+```{r}
+anova(m1.lmer, m0.lmer, test = "Chi")
+```
+
+*Age* is a significant contribution to the model. ✅ The *age* model is significantly better than the previous one.
+
+Adding further predictors, starting with *gender*. Instead of refitting the model, we can update the model.
+
+```{r}
+m2.lmer <- update(m1.lmer, .~.+ gender)
+tab_model(m2.lmer)
+```
+
+Compare again, which one is better.
+
+```{r}
+anova(m2.lmer, m1.lmer, test = "Chi")
+```
+
+Gender is not significant. Remove it? Let's try for the interaction with age.
+
+```{r}
+m2.lmer <- update(m1.lmer, .~.+ gender*age)
+tab_model(m2.lmer)
+anova(m2.lmer, m1.lmer, test = "Chi")
+```
+
+None of interactions is significant and the model is not performing better than the previous one. Gender will be removed ❌. Interestingly, and contrary to general sociolinguistic assumptions, gender seems to play no role in the choice of a French variant.
+
+Add predictor *competence_french*.
+
+```{r}
+m2.lmer <- update(m1.lmer, .~.+ competence_french)
+tab_model(m2.lmer)
+anova(m2.lmer, m1.lmer, test = "Chi")
+```
+
+As expected, this is one is performing well. ✅
+
+Maybe *competence_french* is interacting with *age*?
+
+```{r}
+m3.lmer <- update(m1.lmer, .~.+ competence_french*age)
+tab_model(m3.lmer)
+anova(m3.lmer, m2.lmer, test = "Chi")
+```
+
+No interaction! Removed from the model. ❌
+
+Add predictor *competence_german*.
+
+```{r}
+m3.lmer <- update(m2.lmer, .~.+ competence_german)
+tab_model(m3.lmer)
+anova(m3.lmer, m2.lmer, test = "Chi")
+```
+
+Not significant! Removed from the model. ❌
+
+Add predictor *education*.
+
+```{r}
+m3.lmer <- update(m2.lmer, .~.+ education)
+tab_model(m3.lmer)
+anova(m3.lmer, m2.lmer, test = "Chi")
+```
+
+*Education* is a significant contribution to the model. ✅ Speakers coming from a classical school or university, use significantly more French variants.
+
+Now adding predictors relating to the location of the speaker, starting with the degree of *urbanity*.
+
+```{r}
+m4.lmer <- update(m3.lmer, .~.+ urbanity)
+tab_model(m4.lmer)
+anova(m4.lmer, m3.lmer, test = "Chi")
+```
+
+*Urbanity* is a ignificant contribution to the model! ✅ Check the algebraic sign for the estimates: In rural areas significant less French variants are used. In the capital significant more French variants are used.
+
+Add predictor *socio-economic index*; ranges from 0 to 1 and is based on the share of single parents, mean salary, share of persons with RMG, level of unemployment *per commune*. 0 = favorable commune, 1 = defavorable commune (see [STATEC](https://statistiques.public.lu/dam-assets/catalogue-publications/bulletin-Statec/2017/bulletin-2-17.pdf)).
+
+```{r}
+m5.lmer <- update(m4.lmer, .~.+ `socio_index_raw`)
+tab_model(m5.lmer)
+anova(m5.lmer, m4.lmer, test = "Chi")
+```
+
+The *socio-economic index* is a significant contribution to the model. ✅ The higher the index, i.e. the less favorable the commune, the less French variants are used.
+
+This is our final model. Speakers **favoring French variants** show the following social characteristics:
+
+-   rather old
+
+-   average to high competence in French
+
+-   education in classical school or university
+
+-   rather living in the capital, then in rural areas
+
+-   low socio-economic index
+
+## 2nd analysis: correspondence regression analysis
+
+See @plevoetsLectometryLatentVariables2020; @gilles2023
+
+Run a regression with two predictors for all **variants, instead for the variables.** Group similar variants together in a two-dimensional space.
+
+Run the correspondence regression analysis.
+
+```{r}
+library(corregp)
+corr.crg <- corregp(variant ~ competence_french * age, data=input_data,
+                      part="variable", b=3000)
+```
+
+A Screeplot shows the amount of variation explained per so-called 'latent variable'.
+
+```{r}
+screeplot(corr.crg, add_ci=TRUE, type="%")
+```
+
+In this case, 65 % of variation is explained by the first 'latent variable' and 13 % by the second latent variable. A considerable amount of variation is thus explained through these two predictors, *competence_french* and *age*.
+
+Now plot this in a two-dimensional space. Use green for variants with French origin and blue for variants with Germanic origin. In addition, plot also the values for *age* (young - middle-aged - old) and *competence_french* (low - average - high). dd
+
+```{r} 
+# Colors for plotting:
+corr.col <- ifelse(xtabs(~variant + French_origin, data=input_data)[,"French"] > 0,
+                       "green3", "blue")
+
+plot(corr.crg, x_ell=TRUE, xsub=c("competence_french", "age"), col_btm=corr.col, col_top="orange",
+     cex_btm=0.7, cex_top=0.7, font_btm= 1, font_top=2, hlim=c(-0.7,1.2), vlim=c(-0.3,0.6), 
+     hlab = "Latent variable 1: 'xxx'", vlab = "Latent variable 2: 'xxx'", add_ori=TRUE)
+```
+
+French variants tend to concentrate in the NE quadrant, and Germanic variants more in the lower half. Interestingly, green and blue form - cum grano salis - two clouds. Distances become visible, e.g. *Buttek* associated with 'French high' and *Geschäft* with 'French low'.
+
+## The end
+
+-   R will help you to understand your data and find the best statistical analysis
+
+-   Quarto will help you to write an analysis, a report or even an entire fully-fledged article in a journal layout - all in one place.
+
+## References
