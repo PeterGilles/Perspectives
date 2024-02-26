@@ -26,7 +26,7 @@ Drawing on data from our Schnëssen project, we seek to understand the driving f
 
 Example:
 
--   Germanic origin: *Stréihallem, Strand, Ferndbedienung* vs. French origin: *Schallimo, Plage, Telecommande*
+-   Germanic origin: *Stréihallem, Strand, Fernbedienung* vs. French origin: *Schallimo, Plage, Telecommande*
 
 This linguistic choice as the **dependent variable** is influenced by social or other linguistic variables as **independent variables:**
 
@@ -304,7 +304,7 @@ screeplot(corr.crg, add_ci=TRUE, type="%")
 
 In this case, 65 % of variation is explained by the first 'latent variable' and 13 % by the second latent variable. A considerable amount of variation is thus explained through these two predictors, *competence_french* and *age*.
 
-Now plot this in a two-dimensional space. Use green for variants with French origin and blue for variants with Germanic origin. In addition, plot also the values for *age* (young - middle-aged - old) and *competence_french* (low - average - high). dd
+Now plot this in a two-dimensional space. Use green for variants with French origin and blue for variants with Germanic origin. In addition, plot also the values for *age* (young - middle-aged - old) and *competence_french* (low - average - high).
 
 ```{r} 
 # Colors for plotting:
