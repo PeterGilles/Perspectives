@@ -5,7 +5,10 @@ author: "Peter Gilles"
 date: 27/02/2024
 format:
   html: 
-    code-fold: true
+    execute:
+      echo: true
+      warning: false
+    code-fold: false
     code-summary: "R code"
   revealjs:
     smaller: true
@@ -306,7 +309,7 @@ In this case, 65 % of variation is explained by the first 'latent variable' and 
 
 Now plot this in a two-dimensional space. Use green for variants with French origin and blue for variants with Germanic origin. In addition, plot also the values for *age* (young - middle-aged - old) and *competence_french* (low - average - high).
 
-```{r} 
+```{r}
 # Colors for plotting:
 corr.col <- ifelse(xtabs(~variant + French_origin, data=input_data)[,"French"] > 0,
                        "green3", "blue")
